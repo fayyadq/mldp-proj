@@ -1,5 +1,12 @@
+# Streamlit version compatible with Python 3.13
 streamlit==1.27.0
-numpy==1.25.2
-pandas==2.0.3
-scikit-learn==1.3.2
-joblib==1.3.2
+
+# Latest numpy and pandas that support Python 3.13
+numpy>=1.26.5
+pandas>=2.2.0
+
+# Other dependencies from your log
+rich>=14.3.2
+markdown-it-py>=4.0.0
+pygments>=2.19.2
+mdurl>=0.1.2
