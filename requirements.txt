@@ -1,7 +1,7 @@
 streamlit==1.27.0
-numpy>=1.26.5,<2
+numpy>=1.23.5,<2
 pandas>=2.2.0
 rich==13.3.6
-markdown-it-py>=4.0.0
-pygments>=2.19.2
-mdurl>=0.1.2
+markdown-it-py==4.0.0
+pygments==2.19.2
+mdurl==0.1.2
