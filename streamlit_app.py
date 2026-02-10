@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+from sklearn.compose import ColumnTransformer
 
 # ==========================================
 # Feature engineering
@@ -20,7 +21,14 @@ def engineer_features(X):
 # ==========================================
 @st.cache_resource
 def load_model():
-    return joblib.load("exam_model_champion.pkl")
+    m = joblib.load("exam_model_champion.pkl")
+    # Patch ColumnTransformer passthrough bug
+    if hasattr(m, 'named_steps'):
+        for step in m.named_steps.values():
+            if isinstance(step, ColumnTransformer):
+                if not hasattr(step, '_name_to_fitted_passthrough'):
+                    step._name_to_fitted_passthrough = {}
+    return m
 
 model = load_model()
 
@@ -71,22 +79,27 @@ for col in missing_cols:
     else:
         input_data[col] = "unknown"
 
+# Ensure proper column order
 input_data = input_data[expected_columns]
 
 # Prediction button
 if st.button("🎯 Predict Exam Score"):
-    prediction = model.predict(input_data)[0]
-    prediction = max(0, min(100, prediction))  # clip to 0-100
+    # Safe prediction
+    try:
+        prediction = model.predict(input_data)[0]
+        prediction = max(0, min(100, prediction))  # clip to 0-100
 
-    st.success(f"📘 Predicted Exam Score: {prediction:.2f}")
+        st.success(f"📘 Predicted Exam Score: {prediction:.2f}")
 
-    st.write("### 📌 Interpretation")
-    if prediction >= 75:
-        st.write("Excellent performance expected.")
-    elif prediction >= 50:
-        st.write("Average performance expected.")
-    else:
-        st.write("Student may require additional academic support.")
+        st.write("### 📌 Interpretation")
+        if prediction >= 75:
+            st.write("Excellent performance expected.")
+        elif prediction >= 50:
+            st.write("Average performance expected.")
+        else:
+            st.write("Student may require additional academic support.")
+    except Exception as e:
+        st.error(f"❌ Prediction failed: {e}")
 
 st.markdown("---")
 st.caption("Model: Feature-Engineered Ridge Regression | MLDP Project | Streamlit")
