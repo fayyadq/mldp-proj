@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import cloudpickle  # <- changed from joblib
+import joblib
 
 # ==========================================
 # Feature engineering
@@ -20,8 +20,7 @@ def engineer_features(X):
 # ==========================================
 @st.cache_resource
 def load_model():
-    with open("exam_model_champion.pkl", "rb") as f:
-        return cloudpickle.load(f)
+    return joblib.load("exam_model_champion.pkl")
 
 model = load_model()
 
@@ -76,21 +75,18 @@ input_data = input_data[expected_columns]
 
 # Prediction button
 if st.button("🎯 Predict Exam Score"):
-    try:
-        prediction = model.predict(input_data)[0]
-        prediction = max(0, min(100, prediction))  # clip to 0-100
+    prediction = model.predict(input_data)[0]
+    prediction = max(0, min(100, prediction))  # clip to 0-100
 
-        st.success(f"📘 Predicted Exam Score: {prediction:.2f}")
+    st.success(f"📘 Predicted Exam Score: {prediction:.2f}")
 
-        st.write("### 📌 Interpretation")
-        if prediction >= 75:
-            st.write("Excellent performance expected.")
-        elif prediction >= 50:
-            st.write("Average performance expected.")
-        else:
-            st.write("Student may require additional academic support.")
-    except Exception as e:
-        st.error(f"Prediction failed: {e}")
+    st.write("### 📌 Interpretation")
+    if prediction >= 75:
+        st.write("Excellent performance expected.")
+    elif prediction >= 50:
+        st.write("Average performance expected.")
+    else:
+        st.write("Student may require additional academic support.")
 
 st.markdown("---")
 st.caption("Model: Feature-Engineered Ridge Regression | MLDP Project | Streamlit")
