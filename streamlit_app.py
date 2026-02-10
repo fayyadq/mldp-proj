@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
+import cloudpickle  # <- changed from joblib
 
 # ==========================================
-# 1️⃣ Feature engineering
+# Feature engineering
 # ==========================================
 def engineer_features(X):
     X = X.copy()
+    # Only engineer interaction features that actually matter
     if 'study_hours' in X.columns and 'class_attendance' in X.columns:
         X['study_attendance_interaction'] = X['study_hours'] * X['class_attendance']
     if 'study_hours' in X.columns and 'sleep_hours' in X.columns:
@@ -15,18 +16,26 @@ def engineer_features(X):
     return X
 
 # ==========================================
-# 2️⃣ Load model
+# Load model
 # ==========================================
-@st.cache_data
+@st.cache_resource
 def load_model():
-    return joblib.load("exam_model_champion.pkl")
+    with open("exam_model_champion.pkl", "rb") as f:
+        return cloudpickle.load(f)
 
 model = load_model()
 
+# Extract preprocessor info
+preprocessor = model.named_steps['pre']
+expected_columns = preprocessor.feature_names_in_
+numeric_cols = preprocessor.transformers_[0][2]  # numeric
+categorical_cols = preprocessor.transformers_[1][2]  # categorical
+
 # ==========================================
-# 3️⃣ Streamlit UI
+# Streamlit UI
 # ==========================================
 st.title("📊 Exam Score Predictor")
+
 st.header("📥 Enter Student Details")
 
 # Numeric Inputs
@@ -41,40 +50,36 @@ user_categorical['gender'] = st.selectbox("Gender", ["male", "female", "other"])
 user_categorical['internet_access'] = st.selectbox("Internet Access", ["yes", "no"])
 user_categorical['study_method'] = st.selectbox("Study Method", ["self-study", "group-study", "tutor"])
 
-# Build input DataFrame
+# Build DataFrame
 input_data = pd.DataFrame([{**user_numeric, **user_categorical}])
+
+# Ensure proper types
+for col in numeric_cols:
+    if col in input_data.columns:
+        input_data[col] = pd.to_numeric(input_data[col], errors='coerce').fillna(0.0)
+for col in categorical_cols:
+    if col in input_data.columns:
+        input_data[col] = input_data[col].astype(str)
 
 # Engineer features
 input_data = engineer_features(input_data)
 
-# ==========================================
-# 4️⃣ Handle missing columns (dynamic)
-# ==========================================
-# Get columns that the model expects (from training)
-try:
-    expected_columns = model.named_steps['pre'].get_feature_names_out()
-except AttributeError:
-    # fallback if preprocessor does not support get_feature_names_out
-    expected_columns = input_data.columns.tolist()
+# Reorder columns as expected by model
+missing_cols = [col for col in expected_columns if col not in input_data.columns]
+for col in missing_cols:
+    if col in numeric_cols:
+        input_data[col] = 0.0
+    else:
+        input_data[col] = "unknown"
 
-# Add missing columns with defaults
-for col in expected_columns:
-    if col not in input_data.columns:
-        if col in ['study_hours', 'class_attendance', 'sleep_hours', 'study_attendance_interaction', 'study_sleep_ratio']:
-            input_data[col] = 0.0
-        else:
-            input_data[col] = "unknown"
-
-# Reorder columns
 input_data = input_data[expected_columns]
 
-# ==========================================
-# 5️⃣ Prediction
-# ==========================================
+# Prediction button
 if st.button("🎯 Predict Exam Score"):
     try:
         prediction = model.predict(input_data)[0]
-        prediction = max(0, min(100, prediction))  # clip 0-100
+        prediction = max(0, min(100, prediction))  # clip to 0-100
+
         st.success(f"📘 Predicted Exam Score: {prediction:.2f}")
 
         st.write("### 📌 Interpretation")
